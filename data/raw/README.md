@@ -10,6 +10,7 @@ Data for this folder include:
 1. `state_level.csv`
 1. `CenPop2010_Mean_BG.txt`
 1. `laucnty13.xlsx`
+1. `USACPIALLAINMEI.csv`
 
 File (1) must be created using the [IPUMS USA data
 portal](https://usa.ipums.org/usa-action/variables/group) to select
@@ -57,3 +58,5 @@ Census and Bureau of Labor Statistics, respectively:
 
 5. https://www2.census.gov/geo/docs/reference/cenpop2010/blkgrp/
 6. https://www.bls.gov/lau/
+
+File (7) can be downloaded from the FRED online data system.
