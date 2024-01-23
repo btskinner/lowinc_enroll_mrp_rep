@@ -24,7 +24,9 @@ col_to_select <- c("STU_ID", "X1SEX", "X1RACE", "X1FAMINCOME", "X4FB16ENRSTAT",
                    "W4W1STU")
 
 df_h <- read_dta(file.path(raw_dir, "hsls_17_student_pets_sr_v1_0.dta"),
-                 col_select = all_of(col_to_select)) |>
+                 col_select = c(all_of(col_to_select),
+                                starts_with("w1student"),
+                                starts_with("w4w1stu"))) |>
   ## lower names
   rename_all(tolower) |>
   ## drop if missing income
@@ -46,18 +48,42 @@ df_h <- read_dta(file.path(raw_dir, "hsls_17_student_pets_sr_v1_0.dta"),
            x1race < 0 ~ 7)          # <missing>
          ) |>
   ## adjust gender cats
-  mutate(gender = case_when(
+  mutate(female = case_when(
            x1sex == 1 ~ 0,          # male
            x1sex == 2 ~ 1,          # female
            x1sex < 0 ~ 2)           # <missing>
          ) |>
   ## filter out missing gender (only 1)
-  filter(gender != 2)
+  filter(female != 2,
+         raceeth != 7)
 
-## get national estimates
-svydat <- svydesign(~stu_id, weights = ~w4w1stu, data = df_h)
-df_e <- svyby(~ps_ontatt, ~lowinc, svydat, svymean, na.rm = T) |>
-  as_tibble()
+## -----------------------------------------------------------------------------
+## National weighted estimates
+## -----------------------------------------------------------------------------
+
+## set up survey data: base
+svydat <- svrepdesign(weights = ~w1student, data = df_h,
+                      repweights = "w1student[0-9]+", type = "BRR")
+
+## compute weighted mean
+df_e_base <- svyby(~ps_ontatt, ~lowinc, svydat, svymean, na.rm = T) |>
+  as_tibble() |>
+  mutate(weight = "base")
+
+## set up survey data: longitudinal
+svydat <- svrepdesign(weights = ~w4w1stu, data = df_h,
+                      repweights = "w4w1stu[0-9]+", type = "BRR")
+
+## computed weighted mean
+df_e_long <- svyby(~ps_ontatt, ~lowinc, svydat, svymean, na.rm = T) |>
+  as_tibble() |>
+  mutate(weight = "long")
+
+## combine
+df_e <- bind_rows(
+  df_e_base,
+  df_e_long
+)
 
 ## -----------------------------------------------------------------------------
 ## IPEDS: enrollment for 2013-2014 by income
@@ -65,14 +91,17 @@ df_e <- svyby(~ps_ontatt, ~lowinc, svydat, svymean, na.rm = T) |>
 
 ## read in and join various IPEDS files that align with first year in college
 ## for HSLS (on-time)
-df_i <- read_csv(file.path(raw_dir, "ipeds", "sfa1314_rv.csv")) |>
+df_i <- read_csv(file.path(raw_dir, "ipeds", "sfa1314_rv.csv"),
+                 show_col_types = FALSE) |>
   rename_all(tolower) |>
   select(unitid, scugffn, grn4n12, upgrntp, scfa2) |>
-  left_join(read_csv(file.path(raw_dir, "ipeds", "hd2014.csv")) |>
+  left_join(read_csv(file.path(raw_dir, "ipeds", "hd2014.csv"),
+                     show_col_types = FALSE) |>
               rename_all(tolower) |>
               select(unitid, stabbr),
             by = "unitid") |>
-  left_join(read_csv(file.path(raw_dir, "ipeds", "efia2014_rv.csv")) |>
+  left_join(read_csv(file.path(raw_dir, "ipeds", "efia2014_rv.csv"),
+                     show_col_types = FALSE) |>
               rename_all(tolower) |>
               select(unitid, efteug),
             by = "unitid")

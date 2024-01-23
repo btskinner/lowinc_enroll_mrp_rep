@@ -8,7 +8,7 @@
 ################################################################################
 
 ## libraries
-libs <- c("tidyverse", "crosswalkr", "patchwork")
+libs <- c("tidyverse", "crosswalkr", "patchwork", "Cairo")
 sapply(libs, require, character.only = TRUE)
 
 ## file paths
@@ -160,16 +160,19 @@ plot_df <- pop |>
 
 ## make plot
 p1 <- ggplot(plot_df, aes(x = state,
-                         y = y,
-                         fill = t)) +
-  geom_bar(stat = "identity", position = "dodge2") +
+                          y = y,
+                          fill = t,
+                          linetype = t)) +
+  geom_bar(stat = "identity", position = "dodge2", colour = "black", alpha = 0.6,
+           size = 0.2) +
+  scale_linetype_manual(values = c("solid","dashed"), guide = "none") +
   geom_vline(xintercept = seq(1.5, plot_df |>
                                    distinct(state) |>
                                    pull() |>
                                    length(),
                               by = 1),
              colour = "gray",
-             size = .5,
+             linewidth = .5,
              alpha = .5) +
   scale_fill_discrete(guide = "none") +
   scale_y_continuous(breaks = seq(0,100,10),
@@ -195,18 +198,20 @@ plot_df <- df_sam |>
 
 ## plot, with facet for each sample
 p2 <- ggplot(plot_df,
-            aes(x = state, y = y, fill = t)) +
+            aes(x = state, y = y, fill = t, linetype = t)) +
   facet_wrap(~sam,
              labeller = labeller(sam = samp_label),
              nrow = 4) +
-  geom_bar(stat = "identity", position = "dodge2") +
+  geom_bar(stat = "identity", position = "dodge2", colour = "black", alpha = 0.6,
+           size = 0.2) +
+  scale_linetype_manual(values = c("solid","dashed"), name = "D") +
   geom_vline(xintercept = seq(1.5, plot_df |>
                                    distinct(state) |>
                                    pull() |>
                                    length(),
                               by = 1),
              colour = "gray",
-             size = .5,
+             linewidth = .5,
              alpha = .5) +
   labs(title = "Samples from simulated population",
        y = bquote(theta[state]),
@@ -245,7 +250,13 @@ plot_df <- df_sam |>
   left_join(pop |>
             group_by(state, t) |>
             summarise(y_pop = mean(y) * 100,
-                      .groups = "drop"))
+                      .groups = "drop")) |>
+  mutate(tfont = ifelse(t == 0, "plain", "italic"))
+
+cors <- plot_df |>
+  group_by(sam, t) |>
+  summarise(cor = round(cor(y, y_pop), 2),
+            .groups = "drop")
 
 ## each sample gets a facet
 p <- ggplot(plot_df,
@@ -257,7 +268,13 @@ p <- ggplot(plot_df,
   geom_abline(intercept = 0, slope = 1) +
   geom_point() +
   geom_point(colour = "white", show.legend = FALSE) +
-  geom_text(aes(label = state), show.legend = FALSE) +
+  geom_text(aes(label = state, fontface = tfont), show.legend = FALSE) +
+  geom_text(data = cors |> filter(t == 0),
+            aes(label = paste0("\u03c1 (D = 0) = ", cor), group = sam),
+            inherit.aes = FALSE, vjust = 1, hjust = 0, x = 0, y = 100) +
+  geom_text(data = cors |> filter(t == 1),
+            aes(label = paste0("\u03c1 (D = 1) = ", cor), group = sam),
+            inherit.aes = FALSE, vjust = 1, hjust = 0, x = 0, y = 92) +
   scale_x_continuous(limits = c(0,100)) +
   scale_y_continuous(limits = c(0,100)) +
   labs(title = NULL,
@@ -273,7 +290,8 @@ ggsave(filename = file.path(fig_dir, "sim_45_sam.pdf"),
        width = plot_sq_75,
        height = plot_sq_75,
        units = "in",
-       dpi = "retina")
+       dpi = "retina",
+       device = cairo_pdf)
 
 ## -------------------------------------
 ## population to estimate
@@ -281,13 +299,22 @@ ggsave(filename = file.path(fig_dir, "sim_45_sam.pdf"),
 
 ## join plot_df with population data
 plot_df <- df_est |>
+  filter(q == "50") |>
+  mutate(v = v * 100) |>
   left_join(pop |>
             group_by(state, t) |>
             summarise(y_pop = mean(y) * 100,
-                      .groups = "drop"))
+                      .groups = "drop")) |>
+  mutate(tfont = ifelse(t == 0, "plain", "italic"))
+
+cors <- plot_df |>
+  group_by(sam, t) |>
+  summarise(cor = round(cor(v, y_pop), 2),
+            .groups = "drop")
+
 
 ## each sample gets a facet
-p <- ggplot(plot_df |> filter(q == "50") |> mutate(v = v * 100),
+p <- ggplot(plot_df,
             aes(x = v,
                 y = y_pop,
                 colour = t)) +
@@ -296,7 +323,13 @@ p <- ggplot(plot_df |> filter(q == "50") |> mutate(v = v * 100),
   geom_abline(intercept = 0, slope = 1) +
   geom_point() +
   geom_point(colour = "white", show.legend = FALSE) +
-  geom_text(aes(label = state), show.legend = FALSE) +
+  geom_text(aes(label = state, fontface = tfont), show.legend = FALSE) +
+  geom_text(data = cors |> filter(t == 0),
+            aes(label = paste0("\u03c1 (D = 0) = ", cor), group = sam),
+            inherit.aes = FALSE, vjust = 1, hjust = 0, x = 0, y = 100) +
+  geom_text(data = cors |> filter(t == 1),
+            aes(label = paste0("\u03c1 (D = 1) = ", cor), group = sam),
+            inherit.aes = FALSE, vjust = 1, hjust = 0, x = 0, y = 92) +
   scale_x_continuous(limits = c(0,100)) +
   scale_y_continuous(limits = c(0,100)) +
   labs(title = NULL,
@@ -312,7 +345,8 @@ ggsave(filename = file.path(fig_dir, "sim_45_est.pdf"),
        width = plot_sq_75,
        height = plot_sq_75,
        units = "in",
-       dpi = "retina")
+       dpi = "retina",
+       device = cairo_pdf)
 
 ## -----------------------------------------------------------------------------
 ## line plot comparison between population, sample, and MRP
@@ -350,6 +384,28 @@ plot_df <- df_est |>
                     levels = c(0,1),
                     labels = c("n","y")))
 
+pop_est <- plot_df |>
+  filter(type == "y_pop") |>
+  select(sam:state, pop = est)
+
+samp_est <- plot_df |>
+  filter(type == "y_samp") |>
+  select(sam:state, samp = est)
+
+comp <- plot_df |>
+  filter(type == "q50") |>
+  select(sam:state, q2.5, q50 = est, q97.5) |>
+  left_join(pop_est) |>
+  left_join(samp_est) |>
+  mutate(pop_con = as.integer(pop >= q2.5 & pop <= q97.5),
+         pop_dist = abs(q50 - pop),
+         samp_dist = abs(samp - pop)) |>
+  group_by(sam, t) |>
+  summarise(pop_con = round(mean(pop_con), 2),
+            pop_dist = round(mean(pop_dist), 2),
+            samp_dist = round(mean(samp_dist, na.rm = TRUE), 2),
+            .groups = "drop")
+
 ## plot: SRSL
 p1 <- ggplot(plot_df |>
                filter(sam == "srsl"),
@@ -372,6 +428,21 @@ p1 <- ggplot(plot_df |>
              colour = "gray",
              size = .5,
              alpha = .5) +
+  geom_text(data = comp |> filter(sam == "srss"),
+            aes(group = t,
+                label = paste0("% \u0398 within MRP 95% CI: ", pop_con)),
+            inherit.aes = FALSE,
+            vjust = 0, hjust = 0, x = 0.75, y = 0, size = 2) +
+  geom_text(data = comp |> filter(sam == "srss"),
+            aes(group = t,
+                label = paste0("|\u0394\u03b8| Pop & Sample =  ", samp_dist)),
+            inherit.aes = FALSE,
+            vjust = 0, hjust = 0, x = 0.75, y = 6, size = 2) +
+  geom_text(data = comp |> filter(sam == "srss"),
+            aes(group = t,
+                label = paste0("|\u0394\u03b8| Pop & MRP = ", pop_dist)),
+            inherit.aes = FALSE,
+            vjust = 0, hjust = 0, x = 0.75, y = 12, size = 2) +
   labs(title = "Simple random sample (0.1%) from simulated population",
        y = bquote(Theta~","~theta~","~hat(theta)),
        x = NULL) +
@@ -379,7 +450,7 @@ p1 <- ggplot(plot_df |>
   theme_bw() +
   theme(legend.position = "bottom",
         panel.grid.major.x = element_blank(),
-        axis.text.x = element_text(size = 7, angle = 45, vjust = 0.5))
+        axis.text.x = element_text(size = 7, angle = 45, vjust = 0.75))
 
 ## plot: WRSL
 p2 <- ggplot(plot_df |>
@@ -403,6 +474,21 @@ p2 <- ggplot(plot_df |>
              colour = "gray",
              size = .5,
              alpha = .5) +
+  geom_text(data = comp |> filter(sam == "wrss"),
+            aes(group = t,
+                label = paste0("% \u0398 within MRP 95% CI: ", pop_con)),
+            inherit.aes = FALSE,
+            vjust = 0, hjust = 0, x = 0.75, y = 0, size = 2) +
+  geom_text(data = comp |> filter(sam == "wrss"),
+            aes(group = t,
+                label = paste0("|\u0394\u03b8| Pop & Sample =  ", samp_dist)),
+            inherit.aes = FALSE,
+            vjust = 0, hjust = 0, x = 0.75, y = 6, size = 2) +
+  geom_text(data = comp |> filter(sam == "wrss"),
+            aes(group = t,
+                label = paste0("|\u0394\u03b8| Pop & MRP = ", pop_dist)),
+            inherit.aes = FALSE,
+            vjust = 0, hjust = 0, x = 0.75, y = 12, size = 2) +
   labs(title = "Weighted random sample (0.1%) from simulated population",
        y = bquote(Theta~","~theta~","~hat(theta)),
        x = "State") +
@@ -428,7 +514,8 @@ ggsave(filename = file.path(fig_dir, "sim_full_comp.pdf"),
        width = plot_pg_w,
        height = plot_pg_h,
        units = "in",
-       dpi = "retina")
+       dpi = "retina",
+       device = cairo_pdf)
 
 ## =============================================================================
 ## END SCRIPT

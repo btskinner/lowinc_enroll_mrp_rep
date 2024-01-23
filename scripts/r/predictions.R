@@ -38,39 +38,21 @@ cw <- read_csv(file.path(crw_dir, "hsl_fips_cw.csv"),
 
 sl <- read_csv(file.path(raw_dir, "state_level.csv"),
                show_col_types = FALSE) |>
-  left_join(crosswalkr::stcrosswalk,
-            by = c("state" = "stname")) |>
   select(fips = stfips, ends_with("2013")) |>
   left_join(cw, by = "fips") |>
   mutate(across(ends_with("2013"), ~ scale(.x)))
-
-## ---------------------------
-## population
-## ---------------------------
-
-pop <- readRDS(file.path(cln_dir, "acs_lo_poststrat.RDS")) |>
-  ## add crosswalks
-  left_join(cw, by = "fips") |>
-  ## add region
-  left_join(stcrosswalk |> select(stfips, rg = cenreg),
-            by = c("fips" = "stfips")) |>
-  ## arrange
-  arrange(fips, ge, ra, lo)
-
-## save for poststratify later
-saveRDS(pop, file.path(cln_dir, "pop_lo_counts.RDS"))
 
 ## ---------------------------
 ## design matrix
 ## ---------------------------
 
 dmat <- expand.grid(fips = crosswalkr::stcrosswalk |> pull(stfips),
-                    ge = 0:1,
+                    fe = 0:1,
                     ra = 1:6,
                     lo = 0:1) |>
   as_tibble() |>
   left_join(crosswalkr::stcrosswalk |> select(fips = stfips, rg = cenreg)) |>
-  arrange(fips, ge, ra, lo)
+  arrange(fips, fe, ra, lo)
 
 ## save for poststratify later
 saveRDS(dmat, file.path(cln_dir, "design_matrix_lo.RDS"))
@@ -96,7 +78,7 @@ sls <- sl |>
 ## set up population counts
 pc <- dmat |>
   left_join(cw, by = "fips") |>
-  arrange(fips, ge, ra, lo) |>
+  arrange(fips, fe, ra, lo) |>
   as.matrix()
 
 ## prespecify output matrix (much faster)
@@ -107,16 +89,16 @@ for (k in 1:nrow(out_mat)) {
   out_mat[k,] <- pars[["a"]] +
     pars[["a_rg"]][,pc[k,"rg"]] +
     pars[["b_lo"]] * pc[k,"lo"] +
-    pars[["b_ge"]] * pc[k,"ge"] +
+    pars[["b_fe"]] * pc[k,"fe"] +
     pars[["a_ra"]][,pc[k,"ra"]] +
     {
       ## adjustment for missing state
       if (is.na(pc[k,"st"])) {
-        c(pars[["g"]] %*% sls[sls[,"st"] == -999,1:3])
+        c(pars[["g"]] %*% sls[sls[,"st"] == -999,1:5])
       } else {
         pars[["a_st"]][,pc[k,"st"]] +
           pars[["a_st_lo"]][,pc[k,"st"]] * pc[k,"lo"] +
-          c(pars[["g"]] %*% sls[sls[,"st"] == pc[k,"st"],1:3])
+          c(pars[["g"]] %*% sls[sls[,"st"] == pc[k,"st"],1:5])
       }
     }
 }

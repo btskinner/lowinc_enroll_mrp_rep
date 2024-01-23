@@ -48,7 +48,7 @@ hsl_sl <- readRDS(file.path(cln_dir, "hsl_sl.RDS"))
 ## compile model
 ## -------------------------------------
 
-## eg: mrp_sim.stan
+## eg: mrp.stan
 mod_file <- "mrp.stan"
 mod <- cmdstan_model(stan_file = file.path(sta_dir, mod_file),
                      cpp_options = list(stan_threads = TRUE))
@@ -59,9 +59,9 @@ mod <- cmdstan_model(stan_file = file.path(sta_dir, mod_file),
 
 ## first level
 fl <- hsl |>
-  group_by(rg, st, lowinc, gender, raceeth) |>
+  group_by(rg, st, lowinc, female, raceeth) |>
   summarise(total = n(),
-            college = sum(!!sym(k)),
+            college = sum(ps_ontatt),
             .groups = "drop") |>
   arrange(st)
 
@@ -82,7 +82,7 @@ stan_dat <- list(
   rg = fl |> pull(rg),
   college = fl |> pull(college),
   total = fl |> pull(total),
-  ge = fl |> pull(gender),
+  fe = fl |> pull(female),
   lo = fl |> pull(lowinc),
   ra = fl |> pull(raceeth),
   z = sl |> select(-st) |> as.matrix()
