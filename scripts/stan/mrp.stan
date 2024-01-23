@@ -1,17 +1,17 @@
 // -----------------------------------------------
-// mrp_cov
+// mrp
 // -----------------------------------------------
 data {
   int<lower=1> M;	 // # states
   int<lower=1> N;	 // # obs
-  int<lower=1> J;        // # raceetj groups
+  int<lower=1> J;        // # raceeth groups
   int<lower=1> K;        // # 2nd-level predictors
-  int<lower=1> R;        // # regionss
+  int<lower=1> R;        // # regions
   int st[N];
   int rg[N];
   int college[N];
   int total[N];
-  vector[N] ge;
+  vector[N] fe;
   vector[N] lo;
   int ra[N];
   matrix[M,K] z;
@@ -24,7 +24,7 @@ parameters {
   real<lower=0> s_a_st;
   vector<multiplier=s_a_st>[M] a_st;
   // first-level primary terms
-  real b_ge;
+  real b_fe;
   real b_lo;
   real<lower=0> s_a_ra;
   vector<multiplier=s_a_ra>[J] a_ra;
@@ -44,7 +44,7 @@ model {
 			   + a_rg[rg]
 			   + a_st[st]
 			   + b_lo * lo
-			   + b_ge * ge
+			   + b_fe * fe
 			   + a_ra[ra]
 			   + a_st_lo[st] .* lo
 			   + z[st,] * g);
@@ -55,7 +55,7 @@ model {
   a_rg ~ normal(0,s_a_rg);
   a_st ~ normal(0,s_a_st);
   b_lo ~ normal(0,2);
-  b_ge ~ normal(0,2);
+  b_fe ~ normal(0,2);
   a_ra ~ normal(0,s_a_ra);
   a_st_lo ~ normal(0,s_a_st_lo);
   g ~ normal(0,s_g);
