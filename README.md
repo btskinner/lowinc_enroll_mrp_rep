@@ -1,8 +1,8 @@
 This repository contains the replication files for  
 
-> Skinner, Benjamin T. and Doyle, William R., Predicting postsecondary
+> Skinner, Benjamin T. and Doyle, William R. (forthcoming) Predicting postsecondary
 > attendance by family income in the United States using multilevel
-> regression with poststratification (April 5, 2022). Available at
+> regression with poststratification. _Economics of Educatoin Review_ Available at
 > SSRN: http://dx.doi.org/10.2139/ssrn.3054231 
 
 
